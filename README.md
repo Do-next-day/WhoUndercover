@@ -1,4 +1,4 @@
-# 谁是卧底1
+# 谁是卧底
 
 > 基于 [mamoe/mirai-console](https://github.com/mamoe/mirai-console) 开发的文字小游戏
 
