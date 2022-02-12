@@ -1,9 +1,13 @@
 package org.fenglin.core;
 
 import net.mamoe.mirai.console.command.CommandSender;
+import net.mamoe.mirai.console.command.CommandSenderOnMessage;
 import net.mamoe.mirai.contact.User;
+import net.mamoe.mirai.event.EventKt;
+import net.mamoe.mirai.event.events.GroupMessageEvent;
 import org.fenglin.GameInfo;
 import org.fenglin.WUData;
+import org.fenglin.event.GameStopEvent;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
@@ -11,7 +15,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 public class UndercoverCore implements Runnable {
     private final List<GameInfo> data = new ArrayList<>();
-    Status c1 = Status.CREATE;
+    Status status = Status.CREATE;
     private CommandSender sender_run = null;
     private Map<String, String> world_data;
 
@@ -27,7 +31,7 @@ public class UndercoverCore implements Runnable {
             }
 
 //          描述阶段检测
-            if (c1 == Status.DESCRIBE) {
+            if (status == Status.DESCRIBE) {
                 AtomicReference<Boolean> isD = new AtomicReference<>(false);
                 data.forEach(v -> {
                     if (v.getDescription().equals("空")) {
@@ -35,13 +39,13 @@ public class UndercoverCore implements Runnable {
                     }
                 });
                 if (!isD.get()) {
-                    c1 = Status.VOTE;
+                    status = Status.VOTE;
                     sender_run.sendMessage("描述阶段结束，开始投票阶段");
 
                 }
             }
             //          投票阶段检测
-            if (c1 == Status.VOTE) {
+            if (status == Status.VOTE) {
                 AtomicReference<Boolean> isD = new AtomicReference<>(false);
 //                v.setIsVoted(false); 完成投票  全部为false即为投票完成 有一个ture跳过！
                 data.forEach(v -> {
@@ -77,7 +81,7 @@ public class UndercoverCore implements Runnable {
                             }
                         }
                         sender_run.sendMessage(info.toString());
-                        c1 = Status.CREATE;
+                        status = Status.CREATE;
                         data.clear();
                         return;
                     } else {
@@ -95,27 +99,27 @@ public class UndercoverCore implements Runnable {
                                 }
                             }
                             sender_run.sendMessage(infoW.toString());
-                            c1 = Status.CREATE;
+                            status = Status.CREATE;
                             data.clear();
                             return;
                         }
                     }
 //                  转化描述状态！
                     sender_run.sendMessage("卧底存在!继续描述.");
-                    c1 = Status.DESCRIBE;
+                    status = Status.DESCRIBE;
                 }
             }
         }
     }
 
     public void create(CommandSender sender) {
-        if (c1 == Status.CREATE) {
+        if (status == Status.CREATE) {
             GameInfo admin = new GameInfo();
             admin.setName(sender.getName());
             admin.setId(Objects.requireNonNull(sender.getUser()).getId());
             admin.setIsAdmin(true);
             data.add(admin);
-            c1 = Status.JOIN;
+            status = Status.JOIN;
             sender.sendMessage("创建游戏成功");
         } else {
             sender.sendMessage("游戏已创建");
@@ -123,7 +127,7 @@ public class UndercoverCore implements Runnable {
     }
 
     public void join(CommandSender sender) {
-        if (c1 == Status.JOIN) {
+        if (status == Status.JOIN) {
             boolean isBoot = false;
             for (GameInfo datum : data) {
                 if (datum.getId() == Objects.requireNonNull(sender.getUser()).getId()) {
@@ -146,8 +150,8 @@ public class UndercoverCore implements Runnable {
 
     }
 
-    public void start(CommandSender sender) {
-        if (!(c1 == Status.JOIN)) {
+    public void start(CommandSenderOnMessage<GroupMessageEvent> sender) {
+        if (!(status == Status.JOIN)) {
             sender.sendMessage("当前状态无法开始游戏");
         } else {
             if (data.size() >= 3) {
@@ -174,7 +178,7 @@ public class UndercoverCore implements Runnable {
                     Objects.requireNonNull(Objects.requireNonNull(sender.getBot()).getFriend(datum.getId())).sendMessage("本局你的词条为：" + datum.getWords());
                 }
 //          更改状态
-                c1 = Status.DESCRIBE;
+                status = Status.DESCRIBE;
                 sender.sendMessage("开始成功！你们将收到词条！");
 //          开启游戏检测线程
                 sender_run = sender;
@@ -186,11 +190,11 @@ public class UndercoverCore implements Runnable {
 
     }
 
-    public void stop(CommandSender sender) {
+    public void stop(CommandSenderOnMessage<GroupMessageEvent> sender) {
 
         AtomicReference<Boolean> isf = new AtomicReference<>(false);
-        data.forEach(v -> {
-            if (Objects.requireNonNull(sender.getUser()).getId() == v.getId() && v.getIsAdmin()) {
+        data.forEach(info -> {
+            if (sender.getFromEvent().getSender().getId() == info.getId() && info.getIsAdmin()) {
 
                 isf.set(true);
             }
@@ -198,18 +202,20 @@ public class UndercoverCore implements Runnable {
         if (isf.get()) {
             sender.sendMessage("无管理权限，无法重置");
         } else {
-            c1 = Status.CREATE;
+            status = Status.CREATE;
             data.clear();
+            GameStopEvent event = new GameStopEvent(sender.getFromEvent().getGroup());
+            EventKt.broadcast(event);
             sender.sendMessage("已重置游戏！");
         }
     }
 
-    public void describe(CommandSender sender, String message) {
-        if (c1 == Status.DESCRIBE) {
+    public void describe(CommandSenderOnMessage<GroupMessageEvent> sender, String message) {
+        if (status == Status.DESCRIBE) {
             AtomicReference<Boolean> isD = new AtomicReference<>(false);
-            data.forEach(v -> {
-                if (Objects.requireNonNull(sender.getUser()).getId() == v.getId() && v.getDescription().equals("空")) {
-                    v.setDescription(message);
+            data.forEach(info -> {
+                if (sender.getFromEvent().getSender().getId() == info.getId() && info.getDescription().equals("空")) {
+                    info.setDescription(message);
                     sender.sendMessage("描述成功你的本轮描述词为：" + message);
                     isD.set(true);
                 }
@@ -223,11 +229,11 @@ public class UndercoverCore implements Runnable {
         }
     }
 
-    public void vote(CommandSender sender, User user) {
-        if (c1 == Status.VOTE) {
+    public void vote(CommandSenderOnMessage<GroupMessageEvent> sender, User user) {
+        if (status == Status.VOTE) {
             AtomicReference<Boolean> vInfo = new AtomicReference<>(false);
             data.forEach(v -> {
-                if (Objects.requireNonNull(sender.getUser()).getId() == v.getId() && v.getIsVoted()) {
+                if (sender.getFromEvent().getSender().getId() == v.getId() && v.getIsVoted()) {
                     v.setIsVoted(false);
                     data.forEach(v1 -> {
                         if (v1.getId() == user.getId()) {
@@ -249,7 +255,7 @@ public class UndercoverCore implements Runnable {
     }
 
     public void queryDescriptions(CommandSender sender) {
-        if (c1 == Status.DESCRIBE || c1 == Status.VOTE) {
+        if (status == Status.DESCRIBE || status == Status.VOTE) {
             AtomicReference<String> a = new AtomicReference<>("");
             data.forEach(v -> a.set(a.get() + v.getName() + "描述是：" + v.getDescription() + "\n"));
             sender.sendMessage(a.get());
@@ -259,7 +265,7 @@ public class UndercoverCore implements Runnable {
     }
 
     public void queryPoll(CommandSender sender) {
-        if (c1 == Status.VOTE) {
+        if (status == Status.VOTE) {
             AtomicReference<String> a = new AtomicReference<>("");
             data.forEach(v -> a.set(a.get() + v.getName() + "票数是：" + v.getPoll() + "\n"));
             sender.sendMessage(a.get());

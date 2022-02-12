@@ -26,7 +26,6 @@ object WhoUndercover : KotlinPlugin(
     override fun onEnable() {
         WUCommand.register()
         WUData.reload()
-        println(WUData.words[0])
         logger.info { "谁是卧底，数据加载成功！" }
 
         val games = mutableMapOf<Long, Listener<*>>()
