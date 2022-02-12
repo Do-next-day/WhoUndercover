@@ -1,4 +1,4 @@
-package org.fenglin.Command;
+package org.fenglin.core;
 
 import net.mamoe.mirai.console.command.CommandSender;
 import net.mamoe.mirai.contact.User;

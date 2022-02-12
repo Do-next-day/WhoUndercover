@@ -1,5 +1,5 @@
 package org.fenglin
 
-import org.fenglin.Command.UndercoverCore as JUndercoverCore
+import org.fenglin.core.UndercoverCore as JUndercoverCore
 
 object UndercoverCore : JUndercoverCore()
