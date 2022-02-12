@@ -2,6 +2,7 @@ package org.fenglin.core;
 
 import net.mamoe.mirai.console.command.CommandSender;
 import net.mamoe.mirai.console.command.CommandSenderOnMessage;
+import net.mamoe.mirai.contact.Group;
 import net.mamoe.mirai.contact.User;
 import net.mamoe.mirai.event.EventKt;
 import net.mamoe.mirai.event.events.GroupMessageEvent;
@@ -83,6 +84,7 @@ public class UndercoverCore implements Runnable {
                         sender_run.sendMessage(info.toString());
                         status = Status.CREATE;
                         data.clear();
+                        EventKt.broadcast(new GameStopEvent((Group) Objects.requireNonNull(sender_run.getSubject())));
                         return;
                     } else {
 //                      删除查看剩余人数
@@ -101,6 +103,7 @@ public class UndercoverCore implements Runnable {
                             sender_run.sendMessage(infoW.toString());
                             status = Status.CREATE;
                             data.clear();
+                            EventKt.broadcast(new GameStopEvent((Group) Objects.requireNonNull(sender_run.getSubject())));
                             return;
                         }
                     }
@@ -204,8 +207,7 @@ public class UndercoverCore implements Runnable {
         } else {
             status = Status.CREATE;
             data.clear();
-            GameStopEvent event = new GameStopEvent(sender.getFromEvent().getGroup());
-            EventKt.broadcast(event);
+            EventKt.broadcast(new GameStopEvent(sender.getFromEvent().getGroup()));
             sender.sendMessage("已重置游戏！");
         }
     }
