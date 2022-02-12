@@ -12,6 +12,7 @@ import net.mamoe.mirai.message.data.At
 import net.mamoe.mirai.message.data.firstIsInstanceOrNull
 import net.mamoe.mirai.utils.info
 import org.fenglin.command.WUCommand
+import org.fenglin.core.UndercoverCore
 import org.fenglin.event.GameStopEvent
 
 object WhoUndercover : KotlinPlugin(
@@ -23,40 +24,42 @@ object WhoUndercover : KotlinPlugin(
         author("枫叶秋林")
     }
 ) {
+    private val inGame = mutableSetOf<Long>()
     override fun onEnable() {
         WUCommand.register()
         WUData.reload()
         logger.info { "谁是卧底，数据加载成功！" }
-
         val games = mutableMapOf<Long, Listener<*>>()
         globalEventChannel().subscribeGroupMessages {
             startsWith("谁是卧底") {
                 when {
                     it.contains("创建游戏") -> {
-                        UndercoverCore.create(toCommandSender())
+                        if (!inGame.add(subject.id)) return@startsWith
+                        val game = UndercoverCore()
+                        game.create(toCommandSender())
                         games[subject.id] = globalEventChannel().filter { e -> e is GroupMessageEvent && e.group.id == this.group.id }
                             .subscribeGroupMessages {
                                 "加入游戏" {
-                                    UndercoverCore.join(toCommandSender())
+                                    game.join(toCommandSender())
                                 }
                                 "开始游戏" {
-                                    UndercoverCore.start(toCommandSender())
+                                    game.start(toCommandSender())
                                 }
                                 startsWith("投票") Vote@{
                                     val foo = message.firstIsInstanceOrNull<At>()?.let { at -> subject[at.target] } ?: return@Vote
-                                    UndercoverCore.vote(toCommandSender(), foo)
+                                    game.vote(toCommandSender(), foo)
                                 }
                                 "停止游戏" {
-                                    UndercoverCore.stop(toCommandSender())
+                                    game.stop(toCommandSender())
                                 }
                                 startsWith("描述") { des ->
-                                    UndercoverCore.describe(toCommandSender(), des)
+                                    game.describe(toCommandSender(), des)
                                 }
                                 "查看描述" {
-                                    UndercoverCore.queryDescriptions(toCommandSender())
+                                    game.queryDescriptions(toCommandSender())
                                 }
                                 "查看投票" {
-                                    UndercoverCore.queryPoll(toCommandSender())
+                                    game.queryPoll(toCommandSender())
                                 }
                             }
                     }
